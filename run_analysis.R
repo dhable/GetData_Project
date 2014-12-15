@@ -84,6 +84,7 @@ build_raw_table <- function(files, labels = load_labels()) {
   setnames(activities, "activity_id")
   setkey(activities, activity_id)
   activities <- merge(activities, labels$activities)
+  activities[,activity_id:=NULL]
     
   # Load all of the features reported on per subject. Since this data set is missing nice column
   # names, use the label set for the column names instead. 
