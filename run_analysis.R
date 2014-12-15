@@ -16,6 +16,7 @@ file.touch <- function(path) {
   Sys.setFileTime(path, Sys.time())
 }
 
+
 # Function that will check that the UCI HAR data set exists in the current
 # working directory. If it does not, then this function will attempt to
 # download the dataset, unzip it and update the time that it was downloaded
@@ -31,6 +32,7 @@ ensure_data_exists <- function() {
     file.touch("./UCI HAR Dataset")
   }
 }
+
 
 # Helper function that will read the modified date on a directory
 # or file. It returns the value as a string formatted similar to the
@@ -56,21 +58,6 @@ load_labels <- function() {
   list(features = feature_key, activities = activity_key)
 }
 
-# Subsets a data table to only include variable names that match the
-# colRegex pattern.
-#
-# Input:
-#   dt = a data table object
-#   colRegex = a string with a perl regular expression for variables to keep
-#
-# Output:
-#   A new data table with all of the observations but with only matching
-#   variables.
-filter_data_table_variables <- function(dt, colRegex) {
-  dt_names <- names(dt)
-  matching_col <- grep(colRegex, dt_names, perl = TRUE)
-  dt[,matching_col, with = FALSE]
-}
 
 # Given a list of files in the dataset, join them into a single raw table for futher
 # manipulation.
@@ -102,10 +89,21 @@ build_raw_table <- function(files, labels = load_labels()) {
   # names, use the label set for the column names instead. 
   # Note: I kept getting crashes when I tried to use fread. I need to revisit this if I have
   #       time to make it consistent.
-  features <- read.table(files$feature_data_file, header = FALSE, col.names = labels$features$feature_name)
-  features <- data.table(features)
-  features <- filter_data_table_variables(features, "(\\.mean\\.)|(\\.std\\.)")
+  features <- read.table(files$feature_data_file, header = FALSE)
+  features <- data.table(features) # dirty hack
   
+  # Grab only a subset of the columns that we want to keep in the final data set
+  # and massage the names to be a bit more friendly. This involves setting dashes 
+  # to underscore and dropping the paren pairs from the name.
+  mean_std_cols <- grep("(mean\\(\\))|(std\\(\\))", labels$features$feature_name, perl = TRUE)
+  mean_std_names <- gsub("[\\(\\)]", "", labels$features$feature_name[mean_std_cols])
+  mean_std_names <- gsub("-", "_", mean_std_names)
+  
+  # Finally build the features data set and set the names of the variables to the
+  # clean names we built above.
+  features <- features[,mean_std_cols, with = FALSE]
+  setnames(features, mean_std_names)
+    
   # Merge all of the tables into a single data table and return the results
   data.table(subjects, activities, features)
 }
@@ -151,6 +149,6 @@ ensure_data_exists()
 dateDownloaded <- file.get_time("./UCI HAR Dataset")
 dateAnalysis <- date()
 
-dataset <- build_single_raw_table()
+clean_dataset <- build_single_raw_table()
 
 
