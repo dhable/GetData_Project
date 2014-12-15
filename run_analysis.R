@@ -16,6 +16,22 @@ file.touch <- function(path) {
   Sys.setFileTime(path, Sys.time())
 }
 
+# Function that will check that the UCI HAR data set exists in the current
+# working directory. If it does not, then this function will attempt to
+# download the dataset, unzip it and update the time that it was downloaded
+# by adjusting the modified date.
+ensure_data_exists <- function() {
+  if(!file.exists("./UCI HAR Dataset")) {
+    download.file(data_url, "./dataset-tmp.zip", method="curl")
+    unzip("./dataset-tmp.zip")
+    file.remove("./dataset-tmp.zip")
+    
+    # Set the directory time to the current system time. This will serve as a record
+    # of when the data files were last downloaded from the Internet URL.
+    file.touch("./UCI HAR Dataset")
+  }
+}
+
 # Helper function that will read the modified date on a directory
 # or file. It returns the value as a string formatted similar to the
 # date() function.
@@ -112,15 +128,7 @@ build_single_raw_table <- function() {
 
 
 # The Script
-if(!file.exists("./UCI HAR Dataset")) {
-  download.file(data_url, "./dataset-tmp.zip", method="curl")
-  unzip("./dataset-tmp.zip")
-  file.remove("./dataset-tmp.zip")
-  
-  # Set the directory time to the current system time. This will serve as a record
-  # of when the data files were last downloaded from the Internet URL.
-  file.touch("./UCI HAR Dataset")
-}
+ensure_data_exists()
 
 dateDownloaded <- file.get_time("./UCI HAR Dataset")
 dateAnalysis <- date()
