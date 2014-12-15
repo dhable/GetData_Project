@@ -56,6 +56,21 @@ load_labels <- function() {
   list(features = feature_key, activities = activity_key)
 }
 
+# Subsets a data table to only include variable names that match the
+# colRegex pattern.
+#
+# Input:
+#   dt = a data table object
+#   colRegex = a string with a perl regular expression for variables to keep
+#
+# Output:
+#   A new data table with all of the observations but with only matching
+#   variables.
+filter_data_table_variables <- function(dt, colRegex) {
+  dt_names <- names(dt)
+  matching_col <- grep(colRegex, dt_names, perl = TRUE)
+  dt[,matching_col, with = FALSE]
+}
 
 # Given a list of files in the dataset, join them into a single raw table for futher
 # manipulation.
@@ -88,6 +103,8 @@ build_raw_table <- function(files, labels = load_labels()) {
   # Note: I kept getting crashes when I tried to use fread. I need to revisit this if I have
   #       time to make it consistent.
   features <- read.table(files$feature_data_file, header = FALSE, col.names = labels$features$feature_name)
+  features <- data.table(features)
+  features <- filter_data_table_variables(features, "(\\.mean\\.)|(\\.std\\.)")
   
   # Merge all of the tables into a single data table and return the results
   data.table(subjects, activities, features)
@@ -127,10 +144,13 @@ build_single_raw_table <- function() {
 
 
 
+
 # The Script
 ensure_data_exists()
 
 dateDownloaded <- file.get_time("./UCI HAR Dataset")
 dateAnalysis <- date()
 
-raw_dataset <- build_single_raw_table()
+dataset <- build_single_raw_table()
+
+
