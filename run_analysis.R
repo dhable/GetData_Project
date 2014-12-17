@@ -1,6 +1,7 @@
 #
 # Author: Dan Hable
 library(data.table)
+library(reshape2)
 library(plyr)
 
 # Configurable location that the data can be downloaded from. After changing
@@ -48,12 +49,12 @@ file.get_time <- function(path) {
 # label mappings for the feature types and  the activity types.
 load_labels <- function() {
   feature_key <- fread("UCI HAR Dataset/features.txt", sep = " ", header = FALSE)
-  setnames(feature_key, c("feature_id", "feature_name"))
-  setkey(feature_key, feature_id)
+  setnames(feature_key, c("Feature.Id", "Feature.Name"))
+  setkey(feature_key, Feature.Id)
   
   activity_key <- fread("UCI HAR Dataset/activity_labels.txt", sep = " ", header = FALSE)
-  setnames(activity_key, c("activity_id", "activity_name"))
-  setkey(activity_key, activity_id)
+  setnames(activity_key, c("Activity.Id", "Activity.Name"))
+  setkey(activity_key, Activity.Id)
     
   list(features = feature_key, activities = activity_key)
 }
@@ -74,17 +75,17 @@ load_labels <- function() {
 build_raw_table <- function(files, labels = load_labels()) {
   # Load the list of unique ids of the subjects that reported the observations.
   subjects <- fread(files$subject_data_file, header = FALSE)
-  setnames(subjects, "subject_id")
-  setkey(subjects, subject_id)
+  setnames(subjects, "Subject.Id")
+  setkey(subjects, Subject.Id)
     
   # Load the list of all the activities being done by the subjects relating to the observations.
   # This will result in numeric codes, so merge this in with the activity labels so both numeric
   # code and text label are reported.
   activities <- fread(files$activity_data_file, header = FALSE)
-  setnames(activities, "activity_id")
-  setkey(activities, activity_id)
+  setnames(activities, "Activity.Id")
+  setkey(activities, Activity.Id)
   activities <- merge(activities, labels$activities)
-  activities[,activity_id:=NULL]
+  activities[,Activity.Id:=NULL]
     
   # Load all of the features reported on per subject. Since this data set is missing nice column
   # names, use the label set for the column names instead. 
@@ -96,8 +97,8 @@ build_raw_table <- function(files, labels = load_labels()) {
   # Grab only a subset of the columns that we want to keep in the final data set
   # and massage the names to be a bit more friendly. This involves setting dashes 
   # to underscore and dropping the paren pairs from the name.
-  mean_std_cols <- grep("(mean\\(\\))|(std\\(\\))", labels$features$feature_name, perl = TRUE)
-  mean_std_names <- gsub("[\\(\\)]", "", labels$features$feature_name[mean_std_cols])
+  mean_std_cols <- grep("(mean\\(\\))|(std\\(\\))", labels$features$Feature.Name, perl = TRUE)
+  mean_std_names <- gsub("[\\(\\)]", "", labels$features$Feature.Name[mean_std_cols])
   mean_std_names <- gsub("-", "_", mean_std_names)
   
   # Finally build the features data set and set the names of the variables to the
@@ -140,8 +141,37 @@ build_single_raw_table <- function() {
 }
 
 
-
-
+tidy_up_dataset <- function(dt) {  
+  # Some simple functions to help flatten out lists after calling strsplit.
+  element1Domain <- function(x) { 
+    substr(x[1], 1, 1) 
+  }
+  element1Name <- function(x) { substr(x[1], 2, nchar(x[1])) }    
+  element2 <- function(x) { x[2] }
+  element3 <- function(x) { x[3] }
+  
+  # Transform the data table into a tall but narrow table by introducing a
+  # variable and value column.
+  tidy_dt <- melt(dt, id=c("Subject.Id", "Activity.Name"))
+  setnames(tidy_dt, "value", "Signal.Value")
+    
+  # The variable name contains additional information and values that we can extract
+  # using the split functionality. Add each of these values into the data table.
+  name_components <- strsplit(as.character(tidy_dt$variable), "_")
+  tidy_dt[, Signal.Domain := sapply(name_components, element1Domain)]
+  tidy_dt[, Signal.Name := sapply(name_components, element1Name)]
+  tidy_dt[, StatType := sapply(name_components, element2)]
+  tidy_dt[, Axis := sapply(name_components, element3)]
+  tidy_dt[, variable := NULL]
+  
+  # Clean up the names and types of the signal domain and stat type fields. Both are
+  # better modeled as factors since they are discrete values.
+  tidy_dt[, Signal.Domain := ifelse(Signal.Domain == "t", "Time", "Frequency")]
+  tidy_dt[, Signal.Domain := as.factor(Signal.Domain)]
+  tidy_dt[, StatType := as.factor(StatType)]
+  
+  tidy_dt
+}
 
 
 # The Script
@@ -151,5 +181,5 @@ dateDownloaded <- file.get_time("./UCI HAR Dataset")
 dateAnalysis <- date()
 
 clean_dataset <- build_single_raw_table()
-
+tidy_dataset <- tidy_up_dataset(clean_dataset)
 
