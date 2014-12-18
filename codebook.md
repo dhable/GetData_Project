@@ -1,6 +1,10 @@
 # GetData_Project Code Book
 
-The resulting data file contains the following fields:
+This is the code book related to the output from the run_analysis.R script.
+
+## YYmmdd_HHMMSS_avg_HCI_data.txt
+
+This is the format for the tidy average HCI data file.
 
 * Subject.Id (int) - This is a anonymous id for a subject in the test and is 
   represented by a int.
