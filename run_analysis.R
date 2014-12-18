@@ -211,7 +211,7 @@ dateDownloaded <- file.get_time("./UCI HAR Dataset")
 # rules of tidy data to them. Saves out the dataset.
 clean_dataset <- build_single_raw_table()
 tidy_dataset <- tidy_up_dataset(clean_dataset)
-save_data_table(dateDownloaded, "tidy_HCI_data.txt", tidy_dataset)
+save_data_table(dateDownloaded, "HCI_data.txt", tidy_dataset)
 
 
 # Step 5
