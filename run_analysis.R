@@ -179,6 +179,14 @@ tidy_up_dataset <- function(dt) {
   tidy_dt[, Signal.Domain := as.factor(Signal.Domain)]
   tidy_dt[, StatType := as.factor(StatType)]
   
+  # Aggerate rows that have the same key fields into a single row using the mean
+  # function to perform the aggeration on the value. This is now a tidy dataset
+  # since we have a single row for observations and only one column contains an
+  # observed value. The rest of the data table are keys.
+  tidy_dt <- tidy_dt[, mean(Signal.Value),
+                       by=c("Subject.Id", "Activity.Name", "Signal.Domain", "Signal.Name", "StatType", "Axis")]
+  setnames(tidy_dt, "V1", "Signal.Value.Mean")
+  
   tidy_dt
 }
 
@@ -206,19 +214,8 @@ save_data_table <- function(timestamp, filename_base, dt) {
 ensure_data_exists()
 dateDownloaded <- file.get_time("./UCI HAR Dataset")
 
-# Step 1 - 4
 # Transforms the multiple data files into a single data table and applies the
 # rules of tidy data to them. Saves out the dataset.
 clean_dataset <- build_single_raw_table()
-tidy_dataset <- tidy_up_dataset(clean_dataset)
-save_data_table(dateDownloaded, "HCI_data.txt", tidy_dataset)
-
-
-# Step 5
-# Instead of allowing multiple records in the table, this step aggerates the same
-# key values using the average (mean) to reduce the values. Rename the column to denote
-# the transformation and then save.
-avg_tidy_dataset <- tidy_dataset[, mean(Signal.Value),
-                                   by=c("Subject.Id", "Activity.Name", "Signal.Domain", "Signal.Name", "StatType", "Axis")]
-setnames(avg_tidy_dataset, "V1", "Signal.Value.Mean")
+avg_tidy_dataset <- tidy_up_dataset(clean_dataset)
 save_data_table(dateDownloaded, "avg_HCI_data.txt", avg_tidy_dataset)
