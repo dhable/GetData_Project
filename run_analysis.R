@@ -1,8 +1,7 @@
-#
+# Script to clean up the HCI data set from Samsung into two tidy formats.
 # Author: Dan Hable
 library(data.table)
 library(reshape2)
-library(plyr)
 
 # Configurable location that the data can be downloaded from. After changing
 # this value, delete the existing local data in order to force a download.
@@ -40,7 +39,7 @@ ensure_data_exists <- function() {
 # date() function.
 file.get_time <- function(path) {
   modified_time <- file.info(path)$mtime
-  format(modified_time, "%a %b %d %H:%M:%S %Y")
+  format(modified_time, "%Y%m%d_%H%M%S")
 }
 
 
@@ -141,6 +140,16 @@ build_single_raw_table <- function() {
 }
 
 
+# Given a data table, transforms the data by melting the table down into a row per single
+# measured signal value. The variable key name is then decomposed into individual elements
+# and given separate columns to make queries on the various keys easier in the future.
+#
+# Input:
+#   A single data table object loaded from the HCI data (see build_single_raw_table for how
+#   to obtain the input).
+#
+# Output:
+#   A data table that has been reduced per tidy data rules.
 tidy_up_dataset <- function(dt) {  
   # Some simple functions to help flatten out lists after calling strsplit.
   element1Domain <- function(x) { 
@@ -174,12 +183,42 @@ tidy_up_dataset <- function(dt) {
 }
 
 
-# The Script
+# Saves a data table into a file that is a function of the timestamp and the 
+# filename_base in the current working directory. You should be able to read
+# the table using read.table.
+#
+# Inputs:
+#   timestamp = A string representation of a timestamp that can be written
+#     to the file system. file.get_time() returns exactly that.
+#
+#   filename_base = A string filename component that will appear after the
+#     the timestamp.
+#
+#   dt = The data table to write
+save_data_table <- function(timestamp, filename_base, dt) {
+  write.table(dt, file = paste(timestamp, filename_base, sep="_"))
+}
+
+
+###############################################################################
+# Script Execution Entry Point #
+################################
 ensure_data_exists()
-
 dateDownloaded <- file.get_time("./UCI HAR Dataset")
-dateAnalysis <- date()
 
+# Step 1 - 4
+# Transforms the multiple data files into a single data table and applies the
+# rules of tidy data to them. Saves out the dataset.
 clean_dataset <- build_single_raw_table()
 tidy_dataset <- tidy_up_dataset(clean_dataset)
+save_data_table(dateDownloaded, "tidy_HCI_data.txt", tidy_dataset)
 
+
+# Step 5
+# Instead of allowing multiple records in the table, this step aggerates the same
+# key values using the average (mean) to reduce the values. Rename the column to denote
+# the transformation and then save.
+avg_tidy_dataset <- tidy_dataset[, mean(Signal.Value),
+                                   by=c("Subject.Id", "Activity.Name", "Signal.Domain", "Signal.Name", "StatType", "Axis")]
+setnames(avg_tidy_dataset, "V1", "Signal.Value.Mean")
+save_data_table(dateDownloaded, "avg_HCI_data.txt", avg_tidy_dataset)
